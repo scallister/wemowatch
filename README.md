@@ -1,5 +1,5 @@
 # wemowatch
-Watches for processes and turns the specified Wemo device on whenever they are detected, and off when they are not detected.
+Activates/deactivates Wemo switches when certain processes are active.
 
 ```
 # The Wemo device "Meeting in Progress sign" will turn on whenever a BlueJeans process is detected on the system.
