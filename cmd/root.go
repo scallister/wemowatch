@@ -16,7 +16,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "wemowatch",
-	Short: "Wemowatch watches a process and holds a Wemo device in a specific state.",
+	Short: "Wemowatch watches a process and holds a Wemo device in a specific state when the process is found.",
 	Run:   wemoWatch,
 }
 
