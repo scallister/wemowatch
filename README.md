@@ -1,14 +1,7 @@
 # wemowatch
-Watches a process and holds a Wemo switch in a particular state.
+Watches for processes and turns the specified Wemo device on whenever they are detected, and off when they are not detected.
 
 ```
-# This example has wemowatch turn a wemo device named meetlight on whenever a process name bluejeans exists
-wemowatch --process-name bluejeans --device-name meetinglight
+# The Wemo device "Meeting in Progress sign" will turn on whenever a BlueJeans process is detected on the system.
+wemowatch --name "Meeting in Progress sign" --processes "BlueJeans"
 ```
-
-# TODO items
-- Add hello world
-- Add ability to search processes by name
-- Add ability to get device-name by name
-- Add daemon mode
-
