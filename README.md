@@ -6,4 +6,3 @@ Activates/deactivates Wemo switches when certain processes are active.
 wemowatch --name "Meeting in Progress sign" --processes "BlueJeans"
 ```
 ![Meeting in Progress Sign](https://raw.githubusercontent.com/scallister/wemowatch/master/sign.jpg)
-https://raw.githubusercontent.com/scallister/wemowatch/master/sign.jpg
