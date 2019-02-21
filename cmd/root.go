@@ -9,7 +9,7 @@ import (
 	"time"
 
 	wemo "github.com/danward79/go.wemo"
-	"github.com/martinlindhe/notify"
+	"github.com/gen2brain/beeep"
 	gops "github.com/mitchellh/go-ps"
 	"github.com/spf13/cobra"
 )
@@ -62,11 +62,10 @@ func wemoWatch(cmd *cobra.Command, args []string) {
 	}
 	log.Printf("Using device %s at %s\n", deviceInfo.FriendlyName, device.Host)
 
-	desiredState := 0
-	lastState := device.GetBinaryState()
 	// Loop and watch for the process
 	for true {
-		desiredState = 0
+		lastState := device.GetBinaryState()
+		desiredState := 0
 		systemProcesses, err := gops.Processes()
 		if err != nil {
 			log.Fatal(err)
@@ -84,7 +83,7 @@ func wemoWatch(cmd *cobra.Command, args []string) {
 			desiredBool := desiredState == 1
 			message := fmt.Sprintf("Switching light to %t\n", desiredBool)
 			log.Println(message)
-			notify.Alert("WemoWatch", name, message, "path/to/icon.png")
+			beeep.Alert("WemoWatch"+" - "+name, message, "path/to/icon.png")
 			err := device.SetState(desiredBool) // Requires a bool instead of an int
 			if err != nil {
 				log.Fatal(err)
