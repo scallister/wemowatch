@@ -47,7 +47,10 @@ func wemoWatch(cmd *cobra.Command, args []string) {
 		devices, _ := api.DiscoverAll(3 * time.Second)
 		for _, d := range devices {
 			deviceInfo, _ := d.FetchDeviceInfo(context.TODO())
-			log.Printf("Found device %s at %s\n", deviceInfo.FriendlyName, device.Host)
+			if deviceInfo == nil {
+				continue
+			}
+			log.Printf("Found device %s at %s full deviceInfo is %s\n", deviceInfo.FriendlyName, device.Host, deviceInfo)
 			if strings.Contains(deviceInfo.FriendlyName, name) {
 				device = *d
 			}
@@ -63,8 +66,12 @@ func wemoWatch(cmd *cobra.Command, args []string) {
 	log.Printf("Using device %s at %s\n", deviceInfo.FriendlyName, device.Host)
 
 	// Loop and watch for the process
+	var i int
+	var lastState int
 	for true {
-		lastState := device.GetBinaryState()
+		if i%1000 == 0 {
+			lastState = device.GetBinaryState()
+		}
 		desiredState := 0
 		systemProcesses, err := gops.Processes()
 		if err != nil {
