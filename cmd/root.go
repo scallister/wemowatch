@@ -62,6 +62,17 @@ func globalSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func watch(cmd *cobra.Command, args []string) (err error) {
+
+	// Exit if WemoWatch is already running
+	alreadyRunning, err := wemoWatchAlreadyRunning()
+	if err != nil {
+		return
+	}
+	if alreadyRunning {
+		fmt.Printf("Wemo Watch is already running\n")
+		os.Exit(0)
+	}
+
 	name := cmd.Flag("name").Value.String()
 
 	processes := strings.Split(cmd.Flag("processes").Value.String(), ",")

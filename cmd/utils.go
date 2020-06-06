@@ -70,6 +70,27 @@ func getDeviceByName(name string) (correctDevice *wemo.Device, err error) {
 	return
 }
 
+func wemoWatchAlreadyRunning() (alreadyRunning bool, err error) {
+	systemProcesses, err := gops.Processes()
+	if err != nil {
+		return
+	}
+
+	count := 0
+	for _, sp := range systemProcesses {
+		spName := strings.ToLower(sp.Executable())
+		if strings.Contains(spName, "wemowatch") {
+			count += 1
+		}
+	}
+	// Needs to be greater than one so we do not count this process
+	// if it is the only one running
+	if count > 1 {
+		alreadyRunning = true
+	}
+	return
+}
+
 // pollIfProcessRunning - Continually runs and updates `desiredStateOn`
 func pollIfProcessRunning(processes []string, device *wemo.Device) (err error) {
 	var desiredState int
