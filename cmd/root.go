@@ -1,33 +1,44 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 	"time"
 
-	wemo "github.com/danward79/go.wemo"
-	"github.com/gen2brain/beeep"
-	gops "github.com/mitchellh/go-ps"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "wemowatch",
-	Short: "Wemowatch watches a process and holds a Wemo device in a specific state when the process is found.",
-	Run:   wemoWatch,
+	Use:               "wemowatch",
+	Short:             "Wemowatch watches a process and holds a Wemo device in a specific state when the process is found.",
+	RunE:              watch,
+	PersistentPreRunE: globalSetup,
 }
 
 func init() {
 	rootCmd.Flags().StringP("processes", "p", "", "csv of Process names")
 	rootCmd.MarkFlagRequired("processes")
-	rootCmd.Flags().StringP("interface", "i", "en0", "network interface")
+	rootCmd.PersistentFlags().StringVarP(&interfaceName, "interface", "i", "", "network interface")
 	rootCmd.Flags().StringP("name", "n", "", "wemo device name")
 	rootCmd.MarkFlagRequired("name")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "")
 }
 
+// TIMEOUT - Global timeout value
+var TIMEOUT = 3 * time.Second
+
+var interfaceName string
+
+// SharedDesiredState - Shared variable to control desired state
+var SharedDesiredState int
+
+// ActualState - Indicates the actual state
+var ActualState int
+
+// Execute - main method for cobra
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -35,72 +46,47 @@ func Execute() {
 	}
 }
 
-func wemoWatch(cmd *cobra.Command, args []string) {
+func globalSetup(cmd *cobra.Command, args []string) (err error) {
+	if interfaceName == "" {
+		interfaceName, err = FindBestInterfaceName()
+		if err != nil {
+			return
+		}
+	}
+
+	if cmd.Flag("verbose").Value.String() != "true" {
+		log.SetOutput(ioutil.Discard)
+	}
+
+	return
+}
+
+func watch(cmd *cobra.Command, args []string) (err error) {
 	name := cmd.Flag("name").Value.String()
-	networkInterface := cmd.Flag("interface").Value.String()
+
 	processes := strings.Split(cmd.Flag("processes").Value.String(), ",")
 
-	api, _ := wemo.NewByInterface(networkInterface)
-
-	device := wemo.Device{}
-	for device.Host == "" {
-		devices, _ := api.DiscoverAll(3 * time.Second)
-		for _, d := range devices {
-			deviceInfo, _ := d.FetchDeviceInfo(context.TODO())
-			if deviceInfo == nil {
-				continue
-			}
-			log.Printf("Found device %s at %s full deviceInfo is %s\n", deviceInfo.FriendlyName, device.Host, deviceInfo)
-			if strings.Contains(deviceInfo.FriendlyName, name) {
-				device = *d
-			}
-		}
-		if device.Host == "" {
-			time.Sleep(60 * time.Second)
-		}
-	}
-	deviceInfo, err := device.FetchDeviceInfo(context.TODO())
+	log.Printf("Finding device \"%s\"\n", name)
+	device, err := getDeviceByName(name)
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
-	log.Printf("Using device %s at %s\n", deviceInfo.FriendlyName, device.Host)
+	deviceString, err := deviceToString(device)
+	if err != nil {
+		return
+	}
+	log.Printf("Found device: %s\n", deviceString)
 
-	// Loop and watch for the process
-	var i int
-	var lastState int
-	for true {
-		if i%1000 == 0 {
-			lastState = device.GetBinaryState()
-		}
-		desiredState := 0
-		systemProcesses, err := gops.Processes()
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, sp := range systemProcesses {
-			spName := sp.Executable()
-			for _, p := range processes {
-				if strings.EqualFold(strings.ToLower(spName), strings.ToLower(p)) {
-					desiredState = 1
-					break
-				}
-			}
-		}
-		if lastState != desiredState {
-			desiredBool := desiredState == 1
-			message := fmt.Sprintf("Switching light to %t\n", desiredBool)
-			log.Println(message)
-			beeep.Alert("WemoWatch"+" - "+name, message, "path/to/icon.png")
-			err := device.SetState(desiredBool) // Requires a bool instead of an int
-			if err != nil {
-				log.Fatal(err)
-			}
-			lastState = device.GetBinaryState()
-			log.Printf("Setting lastState to %d\n", lastState)
-		}
-		time.Sleep(5 * time.Second)
+	go pollActualState(device)
+	go pollDesiredVsActualState(device)
+	go pollIfProcessRunning(processes, device)
+
+	log.Printf("Ready")
+
+	// Infinite loop so the go routines can continue
+	for {
+		time.Sleep(1 * time.Hour)
 	}
 
-	api.Off(name, 3*time.Second)
-
+	return
 }
