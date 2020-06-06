@@ -90,10 +90,6 @@ func pollIfProcessRunning(processes []string, device *wemo.Device) (err error) {
 		for _, sp := range systemProcesses {
 			spName := strings.ToLower(sp.Executable())
 			for _, p := range processesLowerCase {
-				/*
-					if strings.Contains(spName, "blue") { // TODO remove
-						fmt.Printf("spName: %s\n", spName)
-					}*/
 				// One of the desired processes is running
 				if strings.EqualFold(spName, strings.ToLower(p)) {
 					desiredState = 1
