@@ -70,7 +70,7 @@ func getDeviceByName(name string) (correctDevice *wemo.Device, err error) {
 	return
 }
 
-func wemoWatchAlreadyRunning() (alreadyRunning bool, err error) {
+func alreadyRunning() (alreadyRunning bool, err error) {
 	systemProcesses, err := gops.Processes()
 	if err != nil {
 		return

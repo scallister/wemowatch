@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -64,13 +65,15 @@ func globalSetup(cmd *cobra.Command, args []string) (err error) {
 func watch(cmd *cobra.Command, args []string) (err error) {
 
 	// Exit if WemoWatch is already running
-	alreadyRunning, err := wemoWatchAlreadyRunning()
+	wasAlreadyRunning, err := alreadyRunning()
 	if err != nil {
 		return
 	}
-	if alreadyRunning {
-		fmt.Printf("Wemo Watch is already running\n")
-		os.Exit(0)
+	if wasAlreadyRunning {
+		msg := fmt.Sprintf("wemowatch is already running")
+		fmt.Println(msg)
+		err = errors.New(msg)
+		return err
 	}
 
 	name := cmd.Flag("name").Value.String()
