@@ -78,10 +78,13 @@ func alreadyRunning() (alreadyRunning bool, err error) {
 
 	count := 0
 	for _, sp := range systemProcesses {
+		// Check if the name matches
 		spName := strings.ToLower(sp.Executable())
-		if strings.Contains(spName, "wemowatch") {
-			count += 1
+		if !strings.Contains(spName, "wemowatch") {
+			continue
 		}
+
+		count += 1
 	}
 	// Needs to be greater than one so we do not count this process
 	// if it is the only one running
