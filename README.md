@@ -7,6 +7,14 @@ wemowatch --name "Meeting in Progress sign" --processes "BlueJeans"
 ```
 ![Meeting in Progress Sign](https://raw.githubusercontent.com/scallister/wemowatch/master/signnew.jpg)
 
+## Buy a sign
+This is the meeting in progress sign I use:
+https://www.amazon.com/Meeting-Progress-Pollution-Prohibit-Distract/dp/B01HEDN0CA
+
+## Buy a wemo mini plug
+This is the wemo plug I use (but any wemo branded switch should work):
+https://smile.amazon.com/Smart-Enabled-Google-Assistant-HomeKit/dp/B01NBI0A6R/
+
 ## Cron Job
 To keep the script running at all times, I add it to my crontab like so. Wemowatch is designed to automatically exit if there is already a wemowatch process running so it is safe to run this once an hour.
 
