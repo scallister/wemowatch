@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"
@@ -72,16 +72,15 @@ func globalSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func watch(cmd *cobra.Command, args []string) (err error) {
-
-	// Exit if WemoWatch is already running
-	wasAlreadyRunning, err := alreadyRunning()
+	isAlreadyRunning, err := alreadyRunning()
 	if err != nil {
 		return
 	}
-	if wasAlreadyRunning {
+	// Exit if WemoWatch is already running
+	if isAlreadyRunning {
 		msg := fmt.Sprintf("wemowatch is already running")
-		fmt.Println(msg)
 		err = errors.New(msg)
+		log.Error().Err(err)
 		return err
 	}
 
