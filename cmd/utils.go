@@ -5,7 +5,7 @@ import (
 	"fmt"
 	wemo "github.com/danward79/go.wemo"
 	gops "github.com/mitchellh/go-ps"
-	"log"
+	"github.com/rs/zerolog/log"
 	"net"
 	"strings"
 	"time"
@@ -114,17 +114,20 @@ func pollIfProcessRunning(processes []string, device *wemo.Device) (err error) {
 		for _, sp := range systemProcesses {
 			spName := strings.ToLower(sp.Executable())
 			for _, p := range processesLowerCase {
+				subLog := log.With().Str("desiredProcess", p).Str("systemProcess", spName).Logger()
 				// One of the desired processes is running
 				if strings.EqualFold(spName, strings.ToLower(p)) {
+					subLog.Info().Msg("Process match found")
 					desiredState = 1
 					break
 				}
+				subLog.Trace().Msg("Processes did not match")
 			}
 		}
 		// Set the shared desiredStateOn variable appropriately
 		if SharedDesiredState != desiredState {
 			SharedDesiredState = desiredState
-			log.Printf("Set desired state to: %d\n", desiredState)
+			log.Info().Msgf("Set desired state to: %d\n", desiredState)
 			err = setState(device)
 			if err != nil {
 				return
@@ -173,7 +176,7 @@ func setState(device *wemo.Device) (err error) {
 	newState := SharedDesiredState == 1
 	err = device.SetState(newState)
 	if err != nil {
-		log.Fatal(err) // TODO improve this
+		log.Error().Err(err).Msg("Encountered error")
 		return
 	}
 	log.Printf("Set to %t\n", newState)

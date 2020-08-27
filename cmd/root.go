@@ -3,8 +3,8 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"os"
 	"strings"
 	"time"
@@ -25,7 +25,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&interfaceName, "interface", "i", "", "network interface")
 	rootCmd.Flags().StringP("name", "n", "", "wemo device name")
 	rootCmd.MarkFlagRequired("name")
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "")
+	rootCmd.PersistentFlags().StringP("log-level", "l", "info", "Set zerolog log level (error/warn/info/debug/trace")
 }
 
 // TIMEOUT - Global timeout value
@@ -48,15 +48,24 @@ func Execute() {
 }
 
 func globalSetup(cmd *cobra.Command, args []string) (err error) {
+	// Setup Logging
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	logLevelStr, err := cmd.Flags().GetString("log-level")
+	if err != nil {
+		return
+	}
+	logLevel, err := zerolog.ParseLevel(logLevelStr)
+	if err != nil {
+		return
+	}
+	zerolog.SetGlobalLevel(logLevel)
+
 	if interfaceName == "" {
 		interfaceName, err = FindBestInterfaceName()
 		if err != nil {
 			return
 		}
-	}
-
-	if cmd.Flag("verbose").Value.String() != "true" {
-		log.SetOutput(ioutil.Discard)
 	}
 
 	return
@@ -80,7 +89,7 @@ func watch(cmd *cobra.Command, args []string) (err error) {
 
 	processes := strings.Split(cmd.Flag("processes").Value.String(), ",")
 
-	log.Printf("Finding device \"%s\"\n", name)
+	log.Info().Msgf("Finding device \"%s\"\n", name)
 	device, err := getDeviceByName(name)
 	if err != nil {
 		return
@@ -89,13 +98,13 @@ func watch(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return
 	}
-	log.Printf("Found device: %s\n", deviceString)
+	log.Info().Msgf("Found device: %s\n", deviceString)
 
 	go pollActualState(device)
 	go pollDesiredVsActualState(device)
 	go pollIfProcessRunning(processes, device)
 
-	log.Printf("Ready")
+	log.Info().Msg("Ready")
 
 	// Infinite loop so the go routines can continue
 	for {
