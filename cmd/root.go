@@ -76,7 +76,7 @@ func globalSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	multiLevelWriter := zerolog.MultiLevelWriter(writers...)
-	logger := zerolog.New(multiLevelWriter).With().Timestamp().Logger()
+	logger := zerolog.New(multiLevelWriter).With().Timestamp().Int("pid", os.Getpid()).Logger()
 	log.Logger = logger
 
 	logLevelStr, err := cmd.Flags().GetString("log-level")
