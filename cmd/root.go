@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -59,13 +61,14 @@ func globalSetup(cmd *cobra.Command, args []string) (err error) {
 	writers = append(writers, consoleWriter)
 
 	// Add file logging if specified
-	logFile, err := cmd.Flags().GetString("log-file")
+	logFilePath, err := cmd.Flags().GetString("log-file")
 	if err != nil {
 		return err
 	}
-	if logFile != "" {
-		f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, os.ModeAppend)
+	if logFilePath != "" {
+		f, err := os.OpenFile(logFilePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0664)
 		if err != nil {
+			log.Error().Err(err).Msg("Failed to open log file")
 			return err
 		}
 		fileLogger := zerolog.ConsoleWriter{Out: f, NoColor: true}
@@ -107,6 +110,10 @@ func watchDaemon(cmd *cobra.Command, args []string) (err error) {
 	pidPath := filepath.Join(homeDirPath, ".wemowatch.pid")
 
 	err = pidfile.WriteControl(pidPath, os.Getpid(), true)
+	if errors.Is(err, pidfile.ErrProcessRunning) {
+		fmt.Printf("Wemowatch is already running: %s", err.Error())
+		os.Exit(0)
+	}
 	if err != nil {
 		log.Error().Err(err).Msg("")
 

@@ -1,8 +1,6 @@
 package main
 
-import (
-	"github.com/scallister/wemowatch/cmd"
-)
+import "wemowatch/cmd"
 
 func main() {
 	cmd.Execute()
