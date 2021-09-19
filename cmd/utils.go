@@ -96,93 +96,60 @@ func alreadyRunning() (alreadyRunning bool, err error) {
 }
 
 // pollIfProcessRunning - Continually runs and updates `desiredStateOn`
-func pollIfProcessRunning(processes []string, device *wemo.Device) (err error) {
-	var desiredState int
-
+func pollIfProcessRunning(ctx context.Context, cancel func(), processRunning chan bool, processes []string) {
 	var processesLowerCase []string
 	for _, process := range processes {
 		processesLowerCase = append(processesLowerCase, strings.ToLower(process))
 	}
 
 	for {
+		var err error
 		var systemProcesses []gops.Process
 		systemProcesses, err = gops.Processes()
 		if err != nil {
+			log.Error().Err(err).Msg("Exiting pollIfProcessRunning because of error and cancelling other routines")
+			cancel()
+
 			return
 		}
 
-		desiredState = 0
+		found := false
 		for _, sp := range systemProcesses {
 			spName := strings.ToLower(sp.Executable())
+			subLog := log.With().Strs("desiredProcesses", processesLowerCase).Str("systemProcess", spName).Logger()
 			for _, p := range processesLowerCase {
-				subLog := log.With().Str("desiredProcess", p).Str("systemProcess", spName).Logger()
 				// One of the desired processes is running
 				if strings.EqualFold(spName, strings.ToLower(p)) {
-					subLog.Info().Msg("Process match found")
-					desiredState = 1
+					subLog.Debug().Msg("Process match found")
+					found = true
+
 					break
 				}
 				subLog.Trace().Msg("Processes did not match")
 			}
 		}
-		// Set the shared desiredStateOn variable appropriately
-		if SharedDesiredState != desiredState {
-			SharedDesiredState = desiredState
-			log.Info().Msgf("Set desired state to: %d", desiredState)
-			err = setState(device)
-			if err != nil {
-				return
-			}
+		select {
+		case <-ctx.Done():
+			log.Warn().Msg("Exiting pollIfProcessRunning because context is done")
 
+			return
+		case processRunning <- found:
+			time.Sleep(15 * time.Second)
 		}
-		time.Sleep(15 * time.Second)
 	}
-	return
 }
 
-// pollActualState - Confirms the actual state is what we believe it is
-func pollActualState(device *wemo.Device) (err error) {
-	var newState int
+// pollActualState - Indicates when the actual state should be fetched
+func pollActualState(ctx context.Context, getActualState chan bool) {
 	for {
-		newState = device.GetBinaryState()
-		if newState != ActualState {
-			ActualState = device.GetBinaryState()
-			log.Printf("Updated actual state to: %d", ActualState)
-			err = setState(device)
-			if err != nil {
-				return err
-			}
+		select {
+		case <-ctx.Done():
+			log.Warn().Msg("Exiting pollActualState because context finished")
+			return
+		case getActualState <- true:
+			time.Sleep(10 * time.Minute)
 		}
-		time.Sleep(10 * time.Minute) // Check every 10 minutes
 	}
-	return
-}
-
-// changeState - Continually switch the state to the desired state if needed
-func pollDesiredVsActualState(device *wemo.Device) (err error) {
-	for {
-		if SharedDesiredState != ActualState {
-			err = setState(device)
-			if err != nil {
-				return
-			}
-		}
-		time.Sleep(1 * time.Minute)
-	}
-	return
-}
-
-// setState - Set the state to the proper value
-func setState(device *wemo.Device) (err error) {
-	newState := SharedDesiredState == 1
-	err = device.SetState(newState)
-	if err != nil {
-		log.Error().Err(err).Msg("Encountered error")
-		return
-	}
-	log.Printf("Set to %t", newState)
-	ActualState = device.GetBinaryState()
-	return
 }
 
 func FindBestInterfaceName() (bestInterfaceName string, err error) {

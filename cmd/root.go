@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"fmt"
+	"context"
 	"io"
 	"os"
 	"strings"
@@ -17,7 +17,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:               "wemowatch",
 	Short:             "Wemowatch watches a process and holds a Wemo device in a specific state when the process is found.",
-	RunE:              watch,
+	RunE:              watchDaemon,
 	PersistentPreRunE: globalSetup,
 }
 
@@ -95,15 +95,6 @@ func globalSetup(cmd *cobra.Command, args []string) (err error) {
 	return
 }
 
-func watch(cmd *cobra.Command, args []string) (err error) {
-	err = watchDaemon(cmd, args)
-	if err != nil {
-		log.Error().Err(err).Msg("Exiting because of this error")
-	}
-
-	return err
-}
-
 func watchDaemon(cmd *cobra.Command, args []string) (err error) {
 	isAlreadyRunning, err := alreadyRunning()
 	if err != nil {
@@ -111,9 +102,10 @@ func watchDaemon(cmd *cobra.Command, args []string) (err error) {
 	}
 	// Exit if WemoWatch is already running
 	if isAlreadyRunning {
-		msg := fmt.Sprintf("wemowatch is already running")
+		msg := "wemowatch is already running"
 		err = errors.New(msg)
-		log.Error().Err(err)
+		log.Error().Err(err).Msg("")
+
 		return err
 	}
 
@@ -121,27 +113,56 @@ func watchDaemon(cmd *cobra.Command, args []string) (err error) {
 
 	processes := strings.Split(cmd.Flag("processes").Value.String(), ",")
 
+	for {
+		err = watch(name, processes)
+		if err != nil {
+			log.Error().Err(err).Msg("Restarting routines in 10 minutes because of failure")
+		}
+		time.Sleep(10 * time.Minute)
+	}
+}
+
+func watch(name string, processes []string) (err error) {
 	log.Info().Msgf("Finding device \"%s\"", name)
 	device, err := getDeviceByName(name)
 	if err != nil {
-		return
+		return err
 	}
 	deviceString, err := deviceToString(device)
 	if err != nil {
-		return
+		return err
 	}
 	log.Info().Msgf("Found device: %s", deviceString)
 
-	go pollActualState(device)
-	go pollDesiredVsActualState(device)
-	go pollIfProcessRunning(processes, device)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	processRunning := make(chan bool)
+	getActualState := make(chan bool)
+	go pollActualState(ctx, getActualState)
+	go pollIfProcessRunning(ctx, cancel, processRunning, processes)
 
 	log.Info().Msg("Ready")
-
-	// Infinite loop so the go routines can continue
+	var wemoIsOn bool
 	for {
-		time.Sleep(1 * time.Hour)
-	}
+		select {
+		case <-ctx.Done():
+			log.Warn().Msg("Exiting watch because context is done")
 
-	return
+			return nil
+		case shouldBeOn := <-processRunning:
+			if wemoIsOn != shouldBeOn {
+				log.Info().Bool("shouldBeOn", shouldBeOn).Msg("Updating wemo device")
+				err = device.SetState(shouldBeOn)
+				if err != nil {
+					log.Error().Err(err).Msg("")
+
+					return err
+				}
+				wemoIsOn = device.GetBinaryState() == 1
+			}
+		case <-getActualState:
+			wemoIsOn = device.GetBinaryState() == 1
+		}
+
+	}
 }
