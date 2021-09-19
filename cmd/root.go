@@ -4,12 +4,13 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/soellman/pidfile"
 
 	"github.com/spf13/cobra"
 )
@@ -23,10 +24,16 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.Flags().StringP("processes", "p", "", "csv of Process names")
-	rootCmd.MarkFlagRequired("processes")
+	err := rootCmd.MarkFlagRequired("processes")
+	if err != nil {
+		log.Fatal().Err(err).Msg("")
+	}
 	rootCmd.PersistentFlags().StringVarP(&interfaceName, "interface", "i", "", "network interface")
 	rootCmd.Flags().StringP("name", "n", "", "wemo device name")
-	rootCmd.MarkFlagRequired("name")
+	err = rootCmd.MarkFlagRequired("name")
+	if err != nil {
+		log.Fatal().Err(err).Msg("")
+	}
 	rootCmd.PersistentFlags().StringP("log-level", "l", "info", "Set zerolog log level (error/warn/info/debug/trace")
 	rootCmd.PersistentFlags().String("log-file", "", "Which file should logs be written to?")
 }
@@ -35,12 +42,6 @@ func init() {
 var TIMEOUT = 3 * time.Second
 
 var interfaceName string
-
-// SharedDesiredState - Shared variable to control desired state
-var SharedDesiredState int
-
-// ActualState - Indicates the actual state
-var ActualState int
 
 // Execute - main method for cobra
 func Execute() {
@@ -96,23 +97,35 @@ func globalSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func watchDaemon(cmd *cobra.Command, args []string) (err error) {
-	isAlreadyRunning, err := alreadyRunning()
+	// Check for existing pid
+	homeDirPath, err := os.UserHomeDir()
 	if err != nil {
-		return
-	}
-	// Exit if WemoWatch is already running
-	if isAlreadyRunning {
-		msg := "wemowatch is already running"
-		err = errors.New(msg)
 		log.Error().Err(err).Msg("")
 
 		return err
 	}
+	pidPath := filepath.Join(homeDirPath, ".wemowatch.pid")
 
+	err = pidfile.WriteControl(pidPath, os.Getpid(), true)
+	if err != nil {
+		log.Error().Err(err).Msg("")
+
+		return err
+	}
+	defer func() {
+		err = pidfile.Remove(pidPath)
+		if err != nil {
+			log.Error().Err(err).Msg("")
+
+			return
+		}
+	}()
+
+	// Get flags
 	name := cmd.Flag("name").Value.String()
-
 	processes := strings.Split(cmd.Flag("processes").Value.String(), ",")
 
+	// Watch processes
 	for {
 		err = watch(name, processes)
 		if err != nil {

@@ -85,7 +85,7 @@ func alreadyRunning() (alreadyRunning bool, err error) {
 			continue
 		}
 
-		count += 1
+		count++
 	}
 	// Needs to be greater than one so we do not count this process
 	// if it is the only one running
