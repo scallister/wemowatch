@@ -3,12 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	wemo "github.com/danward79/go.wemo"
-	gops "github.com/mitchellh/go-ps"
-	"github.com/rs/zerolog/log"
 	"net"
 	"strings"
 	"time"
+
+	wemo "github.com/danward79/go.wemo"
+	gops "github.com/mitchellh/go-ps"
+	"github.com/rs/zerolog/log"
 )
 
 func getWClient() (wClient *wemo.Wemo, err error) {
@@ -127,14 +128,14 @@ func pollIfProcessRunning(processes []string, device *wemo.Device) (err error) {
 		// Set the shared desiredStateOn variable appropriately
 		if SharedDesiredState != desiredState {
 			SharedDesiredState = desiredState
-			log.Info().Msgf("Set desired state to: %d\n", desiredState)
+			log.Info().Msgf("Set desired state to: %d", desiredState)
 			err = setState(device)
 			if err != nil {
 				return
 			}
 
 		}
-		time.Sleep(1 * time.Minute)
+		time.Sleep(15 * time.Second)
 	}
 	return
 }
@@ -146,7 +147,7 @@ func pollActualState(device *wemo.Device) (err error) {
 		newState = device.GetBinaryState()
 		if newState != ActualState {
 			ActualState = device.GetBinaryState()
-			log.Printf("Updated actual state to: %d\n", ActualState)
+			log.Printf("Updated actual state to: %d", ActualState)
 			err = setState(device)
 			if err != nil {
 				return err
@@ -179,7 +180,7 @@ func setState(device *wemo.Device) (err error) {
 		log.Error().Err(err).Msg("Encountered error")
 		return
 	}
-	log.Printf("Set to %t\n", newState)
+	log.Printf("Set to %t", newState)
 	ActualState = device.GetBinaryState()
 	return
 }
